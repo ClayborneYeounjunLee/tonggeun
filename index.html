@@ -465,17 +465,18 @@
       clearArea(); clearDots();
       var heat=cssVar("--accent")||"#2563eb";
 
-      // 면(area): 도보권(진함) + 버스 포함권(연함)을 2겹으로 분리해서 그림
+      // 면(area): 도보권(진함)+버스권(연함). 격자 스냅으로 겹침(불투명) 누적 제한
       function drawLayer(Tmin, radiusFn, opacity, z){
-        var kept=[], pts=[];
-        var orad=radiusFn(Tmin); if(orad>40) pts.push([lastOrigin[0],lastOrigin[1], orad]);
+        var pts=[], maxR=0;
+        var orad=radiusFn(Tmin); if(orad>40){ pts.push([lastOrigin[0],lastOrigin[1],orad]); maxR=orad; }
         lastArrival.forEach(function(a,name){
-          if(a<=Tmin){ var r=radiusFn(Tmin-a); if(r>40){ var c=COORD.get(name); if(c)pts.push([c[0],c[1],r]); } }
+          if(a<=Tmin){ var r=radiusFn(Tmin-a); if(r>40){ var c=COORD.get(name); if(c){ pts.push([c[0],c[1],r]); if(r>maxR)maxR=r; } } }
         });
-        pts.sort(function(a,b){return b[2]-a[2];}); // 큰 원부터, 이미 덮인 작은 원 생략
-        pts.forEach(function(p){
-          for(var k=0;k<kept.length;k++){ if(haversine(p[0],p[1],kept[k][0],kept[k][1]) < kept[k][2]*0.82 && p[2] < kept[k][2]) return; }
-          kept.push(p);
+        if(!pts.length) return;
+        var cell=(maxR*0.9)/111320; if(cell<=0) return; // 셀≈반지름 → 겹침(불투명) 누적을 ~4겹 이하로 제한
+        var best={};
+        pts.forEach(function(p){ var key=Math.round(p[0]/cell)+","+Math.round(p[1]/cell); if(!best[key]||p[2]>best[key][2]) best[key]=p; });
+        Object.keys(best).forEach(function(k){ var p=best[k];
           var circ=new kakao.maps.Circle({ center:new kakao.maps.LatLng(p[0],p[1]), radius:p[2],
             fillColor:heat, fillOpacity:opacity, strokeWeight:0, strokeOpacity:0, zIndex:z });
           circ.setMap(map); overlays.push(circ);
@@ -484,23 +485,24 @@
       var idxs=[0,1,2].filter(function(i){return S.on[i];}).sort(function(a,b){return S.bands[b]-S.bands[a];});
       idxs.forEach(function(bi){
         var Tmin=S.bands[bi];
-        if(S.bus) drawLayer(Tmin, busReach, 0.075, 10+bi);  // 버스 포함권 (연함, 아래)
-        drawLayer(Tmin, walkReach, 0.15, 20+bi);            // 도보권 (진함, 위)
+        if(S.bus) drawLayer(Tmin, busReach, 0.06, 10+bi);  // 버스 포함권 (연함, 아래)
+        drawLayer(Tmin, walkReach, 0.10, 20+bi);           // 도보권 (진함, 위) — 겹쳐도 ~0.45 이하로 유지
       });
 
       // 점(dots): 도달역 표시
       if(S.dots){
-        var maxT=Math.max.apply(null,S.bands);
+        var selT=0; for(var si=0;si<3;si++){ if(S.on[si]&&S.bands[si]>selT) selT=S.bands[si]; }
+        if(!selT) selT=Math.max.apply(null,S.bands);
+        var COLS=[cssVar(BANDCOLORS[0]),cssVar(BANDCOLORS[1]),cssVar(BANDCOLORS[2])];
         lastArrival.forEach(function(a,name){
-          if(a>maxT) return;
+          if(a>selT) return;
           var c=COORD.get(name); if(!c) return;
-          var bi = a<=S.bands[0]?0 : a<=S.bands[1]?1 : a<=S.bands[2]?2 : -1;
-          if(bi<0||!S.on[bi]) return;
-          var col=cssVar(BANDCOLORS[bi]);
+          var bi = a<=S.bands[0]?0 : a<=S.bands[1]?1 : 2;
+          var col=COLS[bi];
           var pos=new kakao.maps.LatLng(c[0],c[1]);
           var dot=new kakao.maps.Circle({
-            center:pos, radius:130,
-            fillColor:col, fillOpacity:0.95, strokeColor:"#ffffff", strokeWeight:1.5, strokeOpacity:1, zIndex:60
+            center:pos, radius:60,
+            fillColor:col, fillOpacity:0.95, strokeColor:"#ffffff", strokeWeight:1, strokeOpacity:1, zIndex:60
           });
           dot.setMap(map);
           kakao.maps.event.addListener(dot,"click",function(){
@@ -672,14 +674,16 @@
     var sheet=$("sheet");
     $("grip").addEventListener("click",function(){ sheet.classList.toggle("collapsed"); });
 
-    document.querySelectorAll(".band").forEach(function(el){
+    // 시간대는 단일 선택 (중복 표시·과도한 겹침 방지)
+    if(S.on.filter(Boolean).length!==1){ S.on=[false,true,false]; }
+    var bandEls=document.querySelectorAll(".band");
+    function syncBands(){ bandEls.forEach(function(el){ el.classList.toggle("off",!S.on[+el.getAttribute("data-band")]); }); }
+    bandEls.forEach(function(el){
       var i=parseInt(el.getAttribute("data-band"),10);
-      if(!S.on[i]) el.classList.add("off");
       el.querySelector(".bt").textContent=S.bands[i];
-      el.addEventListener("click",function(){
-        S.on[i]=!S.on[i]; el.classList.toggle("off",!S.on[i]); saveSet(); render();
-      });
+      el.addEventListener("click",function(){ S.on=[i===0,i===1,i===2]; syncBands(); saveSet(); render(); });
     });
+    syncBands();
 
     function bindRange(id,key,fmt,recalc){
       var el=$(id), v=$(id+"V");
