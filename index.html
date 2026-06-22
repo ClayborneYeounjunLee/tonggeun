@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="통근권">
+<title>통근권 · 지하철 등시권</title>
+<script>
+/* 깜빡임 없이 테마 먼저 적용 (모아 앱들과 동일 패턴 · hub-theme 공유) */
+(function(){ try{ var t=localStorage.getItem("hub-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"); document.documentElement.dataset.theme=t; }catch(e){} })();
+</script>
+<!-- 카카오 우편번호(주소) 서비스 — 키 불필요·무제한 무료 -->
+<script src="//t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<style>
+  /* ════ 디자인 토큰 — moa/haru/kanade/dday 공통 시스템 ════ */
+  :root{
+    --bg:#f4f4f1; --card:#ffffff; --ink:#191b22; --sub:#8a8d99;
+    --line:#e8e8ed; --accent:#2563eb; --accent2:#4f8cff; --accent-soft:#e8f0ff;
+    --green:#2f9e63; --red:#d64545; --amber:#e6920b;
+    --seg-bg:#e9e9ec; --input-bg:#fafafc;
+    --shadow:0 1px 2px rgba(16,18,28,.04), 0 10px 28px rgba(16,18,28,.07);
+    --radius:16px; color-scheme:light;
+  }
+  html[data-theme="dark"]{
+    --bg:#111219; --card:#1b1d27; --ink:#e9eaf0; --sub:#9094a6;
+    --line:#2b2e3c; --accent:#5b8def; --accent2:#84acff; --accent-soft:#1d2740;
+    --green:#41b97c; --red:#ef6e6e; --amber:#f3b13e;
+    --seg-bg:#252734; --input-bg:#14151d;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+    background:var(--bg); color:var(--ink); overflow:hidden; letter-spacing:-0.01em;
+    -webkit-font-smoothing:antialiased;
+  }
+  #map{position:absolute; inset:0; background:var(--seg-bg)}
+
+  /* ── 헤더 ── */
+  header{
+    position:absolute; top:0; left:0; right:0; z-index:20;
+    display:flex; align-items:center; gap:10px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background:linear-gradient(180deg, var(--bg) 55%, transparent);
+    pointer-events:none;
+  }
+  header .brand{display:flex;align-items:center;gap:9px;pointer-events:auto}
+  header .logo{
+    width:34px;height:34px;border-radius:10px;flex:none;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;
+    box-shadow:var(--shadow);
+  }
+  header h1{font-size:17px;margin:0;line-height:1.1;font-weight:800;letter-spacing:-.3px}
+  header .tag{font-size:11px;color:var(--sub);margin-top:1px}
+  header .sp{flex:1}
+  .iconbtn{
+    pointer-events:auto; width:38px;height:38px;border-radius:11px;border:1px solid var(--line);
+    background:var(--card); color:var(--ink); font-size:17px; cursor:pointer;
+    display:grid;place-items:center; box-shadow:var(--shadow);
+  }
+  .iconbtn:active{transform:scale(.94)}
+  .moa-btn{color:var(--accent);font-weight:700;text-decoration:none;font-size:19px}
+
+  /* ── 하단 시트 ── */
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:20;
+    background:var(--card); border-radius:22px 22px 0 0;
+    box-shadow:0 -10px 40px rgba(20,40,80,.16);
+    padding:8px 16px calc(16px + env(safe-area-inset-bottom));
+    transition:transform .28s cubic-bezier(.22,.8,.3,1);
+    max-height:78vh; overflow:auto;
+  }
+  .sheet.collapsed{transform:translateY(calc(100% - 132px))}
+  .grip{width:42px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 12px}
+
+  .searchrow{display:flex;gap:8px;margin-bottom:10px}
+  .searchrow input{
+    flex:1;min-width:0;padding:13px 14px;border-radius:13px;border:1px solid var(--line);
+    background:var(--seg-bg);color:var(--ink);font-size:15px;outline:none;
+  }
+  .searchrow input:focus{border-color:var(--accent)}
+  .btn{
+    border:none;border-radius:13px;padding:0 16px;font-size:15px;font-weight:700;cursor:pointer;
+    background:var(--accent);color:#fff;display:flex;align-items:center;gap:6px;white-space:nowrap;
+  }
+  .btn:active{transform:scale(.96)}
+  .btn.ghost{background:var(--seg-bg);color:var(--ink);border:1px solid var(--line)}
+
+  .origin{
+    display:flex;align-items:center;gap:8px;font-size:13px;color:var(--sub);
+    background:var(--seg-bg);border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:12px;
+  }
+  .origin b{color:var(--ink);font-weight:700}
+  .origin .pin{color:var(--accent)}
+
+  .bands{display:flex;gap:8px;margin-bottom:6px}
+  .band{
+    flex:1;border:1.5px solid var(--line);border-radius:13px;padding:10px 8px;cursor:pointer;
+    background:var(--seg-bg);text-align:center;transition:.15s;position:relative;overflow:hidden;
+  }
+  .band .dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
+  .band .t{font-weight:800;font-size:15px}
+  .band .s{font-size:11px;color:var(--sub);margin-top:2px}
+  .band.off{opacity:.4}
+  .band.b30{border-color:var(--green)} .band.b30 .dot{background:var(--green)}
+  .band.b60{border-color:var(--amber)} .band.b60 .dot{background:var(--amber)}
+  .band.b90{border-color:var(--red)} .band.b90 .dot{background:var(--red)}
+  .band.off{border-color:var(--line)}
+
+  .hint{font-size:12px;color:var(--sub);text-align:center;margin:10px 2px 2px;line-height:1.5}
+  .hint b{color:var(--accent)}
+
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px;border-top:1px solid var(--line)}
+  .row:first-of-type{border-top:none}
+  .row label{font-size:14px;font-weight:600}
+  .row .desc{font-size:11px;color:var(--sub);margin-top:2px}
+  .row input[type=range]{width:140px;accent-color:var(--accent)}
+  .val{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;min-width:54px;text-align:right}
+  .switch{position:relative;width:46px;height:27px;flex:none}
+  .switch input{display:none}
+  .switch span{position:absolute;inset:0;background:var(--line);border-radius:20px;transition:.2s}
+  .switch span::after{content:"";position:absolute;width:21px;height:21px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .switch input:checked + span{background:var(--accent)}
+  .switch input:checked + span::after{transform:translateX(19px)}
+
+  details.adv{margin-top:6px;border-top:1px solid var(--line)}
+  details.adv summary{list-style:none;cursor:pointer;padding:13px 2px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
+  details.adv summary::-webkit-details-marker{display:none}
+  details.adv summary .chev{margin-left:auto;color:var(--sub);transition:.2s}
+  details.adv[open] summary .chev{transform:rotate(180deg)}
+
+  /* ── 모달 ── */
+  .modal{position:absolute;inset:0;z-index:40;background:rgba(8,14,26,.55);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+  .modal.show{display:flex}
+  .card{background:var(--card);border-radius:20px;max-width:460px;width:100%;padding:22px;box-shadow:var(--shadow);max-height:88vh;overflow:auto}
+  .card h2{margin:0 0 6px;font-size:19px}
+  .card p{font-size:13.5px;color:var(--sub);line-height:1.6;margin:8px 0}
+  .card ol{font-size:13px;color:var(--sub);line-height:1.7;padding-left:20px;margin:10px 0}
+  .card ol li{margin-bottom:7px}
+  .card ol b{color:var(--ink)}
+  .card code{background:var(--seg-bg);padding:2px 6px;border-radius:6px;font-size:12px;word-break:break-all}
+  .card input[type=text]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--seg-bg);color:var(--ink);font-size:15px;margin:6px 0 12px;outline:none}
+  .card input[type=text]:focus{border-color:var(--accent)}
+  .card .btn{width:100%;justify-content:center;padding:14px}
+  .card .linkbtn{display:inline-block;color:var(--accent);font-size:13px;text-decoration:none;font-weight:600;margin-top:4px}
+
+  /* ── 토스트 ── */
+  .toast{
+    position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);
+    background:#16202e;color:#fff;padding:11px 18px;border-radius:12px;font-size:13.5px;z-index:50;
+    opacity:0;transition:.25s;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.3);max-width:88vw;text-align:center;
+  }
+  .toast.show{opacity:1}
+
+  .spin{display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .legendwrap{display:flex;gap:6px;font-size:11px;color:var(--sub);justify-content:center;margin-top:8px;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:4px}
+  .lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <header>
+    <div class="brand">
+      <div class="logo">통</div>
+      <div>
+        <h1 data-i18n="title">통근권</h1>
+        <div class="tag" data-i18n="tag">지하철로 닿는 출근 가능 범위</div>
+      </div>
+    </div>
+    <div class="sp"></div>
+    <a class="iconbtn moa-btn" href="https://nsaosulfate.github.io/moa/" data-i18n-title="moa" data-i18n-aria="moa" title="모아로 돌아가기" aria-label="모아로 돌아가기">◈</a>
+    <button class="iconbtn" id="langBtn" title="언어">EN</button>
+    <button class="iconbtn" id="darkBtn" title="다크모드">🌙</button>
+    <button class="iconbtn" id="keyBtn" title="설정">⚙️</button>
+  </header>
+
+  <div class="sheet" id="sheet">
+    <div class="grip" id="grip"></div>
+
+    <div class="searchrow">
+      <input id="addr" type="text" placeholder="주소·지명 검색 (예: 강남역, 판교)" data-i18n-ph="addr_ph" enterkeyhint="search">
+      <button class="btn ghost" id="postBtn" data-i18n-title="post_t" title="도로명 주소 검색" style="padding:0 13px">📮</button>
+      <button class="btn" id="searchBtn"><span data-i18n="search">검색</span></button>
+    </div>
+
+    <div class="origin" id="originBox">
+      <span class="pin">📍</span>
+      <span id="originText" data-i18n="no_origin">지도를 탭하거나 주소를 검색해 출발지를 지정하세요</span>
+    </div>
+
+    <div class="bands">
+      <div class="band b30" data-band="0"><div class="t"><span class="dot"></span><span class="bt">30</span>분</div><div class="s" data-i18n="reachable">도달권</div></div>
+      <div class="band b60" data-band="1"><div class="t"><span class="dot"></span><span class="bt">60</span>분</div><div class="s" data-i18n="reachable">도달권</div></div>
+      <div class="band b90" data-band="2"><div class="t"><span class="dot"></span><span class="bt">90</span>분</div><div class="s" data-i18n="reachable">도달권</div></div>
+    </div>
+    <div class="legendwrap">
+      <span class="lg" data-i18n="lg_dark">■ 진할수록 가까움</span>
+      <span class="lg"><i style="background:var(--green)"></i><span data-i18n="lg_station">도달역</span></span>
+    </div>
+
+    <div class="hint" id="hint" data-i18n="hint">출발지를 정하면 <b>지하철+도보</b> 기준 도달 범위를 그립니다. 역을 누르면 소요시간이 나와요.</div>
+
+    <details class="adv">
+      <summary><span data-i18n="settings">계산 설정</span> <span class="chev">⌄</span></summary>
+
+      <div class="row">
+        <div><label data-i18n="walk">도보 속도</label><div class="desc" data-i18n="walk_d">집·직장 ↔ 역 도보 이동</div></div>
+        <input type="range" id="walk" min="3" max="6" step="0.5" value="4">
+        <span class="val"><span id="walkV">4.0</span>㎞/h</span>
+      </div>
+
+      <div class="row">
+        <div><label data-i18n="bus">버스 포함(근사)</label><div class="desc" data-i18n="bus_d">역까지/역에서 버스 이동 반영</div></div>
+        <label class="switch"><input type="checkbox" id="bus"><span></span></label>
+      </div>
+
+      <div class="row" id="busSpeedRow">
+        <div><label data-i18n="busspeed">버스 평균속도</label><div class="desc" data-i18n="busspeed_d">버스 평균 주행 속도</div></div>
+        <input type="range" id="busSpeed" min="8" max="20" step="1" value="12">
+        <span class="val"><span id="busSpeedV">12</span>㎞/h</span>
+      </div>
+
+      <div class="row" id="busWaitRow">
+        <div><label data-i18n="buswait">버스 대기</label><div class="desc" data-i18n="buswait_d">정류장 평균 대기시간</div></div>
+        <input type="range" id="busWait" min="0" max="12" step="1" value="5">
+        <span class="val"><span id="busWaitV">5</span>분</span>
+      </div>
+
+      <div class="row">
+        <div><label data-i18n="transfer">환승 패널티</label><div class="desc" data-i18n="transfer_d">갈아탈 때 더하는 시간</div></div>
+        <input type="range" id="transfer" min="0" max="10" step="1" value="4">
+        <span class="val"><span id="transferV">4</span>분</span>
+      </div>
+
+      <div class="row">
+        <div><label data-i18n="maxwalk">최대 도보</label><div class="desc" data-i18n="maxwalk_d">역에서 걸어가는 한계</div></div>
+        <input type="range" id="maxwalk" min="5" max="30" step="5" value="15">
+        <span class="val"><span id="maxwalkV">15</span>분</span>
+      </div>
+
+      <div class="row">
+        <div><label data-i18n="showdots">도달역 표시</label><div class="desc" data-i18n="showdots_d">도달 가능한 역에 점 찍기</div></div>
+        <label class="switch"><input type="checkbox" id="showdots" checked><span></span></label>
+      </div>
+
+      <div class="row" style="border-top:1px solid var(--line)">
+        <div><label data-i18n="bandedit">시간대(분)</label><div class="desc" data-i18n="bandedit_d">3개 구간 직접 입력</div></div>
+        <div style="display:flex;gap:6px">
+          <input type="text" inputmode="numeric" id="m0" value="30" style="width:42px;text-align:center;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--seg-bg);color:var(--ink);font-weight:700">
+          <input type="text" inputmode="numeric" id="m1" value="60" style="width:42px;text-align:center;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--seg-bg);color:var(--ink);font-weight:700">
+          <input type="text" inputmode="numeric" id="m2" value="90" style="width:42px;text-align:center;padding:8px;border-radius:9px;border:1px solid var(--line);background:var(--seg-bg);color:var(--ink);font-weight:700">
+        </div>
+      </div>
+
+      <div class="row" style="border-top:1px solid var(--line)">
+        <div><label data-i18n="changekey">카카오 키 변경</label><div class="desc" data-i18n="changekey_d">JavaScript 키 다시 입력</div></div>
+        <button class="btn ghost" id="changeKeyBtn" style="padding:8px 14px;font-size:13px" data-i18n="change">변경</button>
+      </div>
+
+      <div class="hint" style="margin-top:12px" data-i18n="disclaimer">
+        ※ 실제 배차간격·대기시간은 반영되지 않은 <b>추정치</b>입니다. 역간 소요시간 기준이며 통근 범위 가늠용으로만 쓰세요.
+      </div>
+    </details>
+  </div>
+
+  <!-- 키 설정 모달 -->
+  <div class="modal" id="keyModal">
+    <div class="card">
+      <h2 data-i18n="key_title">카카오 지도 키 설정</h2>
+      <p data-i18n="key_intro">이 앱은 카카오 지도를 씁니다. 무료로 발급되는 <b>JavaScript 키</b> 하나만 넣으면 됩니다. (키는 이 기기에만 저장됨)</p>
+      <ol>
+        <li><a class="linkbtn" href="https://developers.kakao.com" target="_blank">developers.kakao.com</a> <span data-i18n="key_s1">로그인 → 내 애플리케이션 → 애플리케이션 추가하기</span></li>
+        <li><span data-i18n="key_s2">앱 선택 →</span> <b>제품 설정 → 카카오맵 → 활성화 ON</b> <span data-i18n="key_s2b">(2024.12부터 필수)</span></li>
+        <li><span data-i18n="key_s3">앱 키에서</span> <b>JavaScript 키</b> <span data-i18n="key_s3b">복사 (REST 키 아님)</span></li>
+        <li><span data-i18n="key_s4">플랫폼 → Web → 사이트 도메인에 등록:</span><br><code id="curOrigin">https://nsaosulfate.github.io</code></li>
+        <li><span data-i18n="key_s5">JavaScript 키를 아래에 붙여넣기</span></li>
+      </ol>
+      <input type="text" id="keyInput" placeholder="JavaScript 키 (예: 0a1b2c3d4e5f...)" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn" id="keySave"><span data-i18n="key_save">저장하고 시작</span></button>
+      <a class="linkbtn" href="https://apis.map.kakao.com/web/guide/" target="_blank" data-i18n="key_doc">카카오맵 웹 가이드 문서 →</a>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="subway-data.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    var LS = window.localStorage;
+    var KEY_K = "tg_kakaokey", DARK_K="hub-theme", LANG_K="tg_lang", SET_K="tg_settings", ORI_K="tg_origin";
+
+    /* ───── i18n ───── */
+    var I18N = {
+      ko:{ title:"통근권", tag:"지하철로 닿는 출근 가능 범위", addr_ph:"주소·지명 검색 (예: 강남역, 판교)",
+        search:"검색", no_origin:"지도를 탭하거나 주소를 검색해 출발지를 지정하세요", reachable:"도달권", moa:"모아로 돌아가기", post_t:"도로명 주소 검색",
+        lg_dark:"■ 진할수록 가까움", lg_station:"도달역",
+        hint:'출발지를 정하면 <b>지하철+도보</b> 기준 도달 범위를 그립니다. 역을 누르면 소요시간이 나와요.',
+        settings:"계산 설정", walk:"도보 속도", walk_d:"집·직장 ↔ 역 도보 이동",
+        bus:"버스 포함(근사)", bus_d:"역까지/역에서 버스 이동 반영", busspeed:"버스 평균속도", busspeed_d:"버스 평균 주행 속도", buswait:"버스 대기", buswait_d:"정류장 평균 대기시간",
+        transfer:"환승 패널티", transfer_d:"갈아탈 때 더하는 시간", maxwalk:"최대 도보", maxwalk_d:"역에서 걸어가는 한계",
+        showdots:"도달역 표시", showdots_d:"도달 가능한 역에 점 찍기", bandedit:"시간대(분)", bandedit_d:"3개 구간 직접 입력",
+        changekey:"카카오 키 변경", changekey_d:"JavaScript 키 다시 입력", change:"변경",
+        disclaimer:'※ 실제 배차간격·대기시간은 반영되지 않은 <b>추정치</b>입니다. 역간 소요시간 기준이며 통근 범위 가늠용으로만 쓰세요.',
+        key_title:"카카오 지도 키 설정", key_intro:"이 앱은 카카오 지도를 씁니다. 무료로 발급되는 <b>JavaScript 키</b> 하나만 넣으면 됩니다. (키는 이 기기에만 저장됨)",
+        key_s1:"로그인 → 내 애플리케이션 → 애플리케이션 추가하기", key_s2:"앱 선택 →", key_s2b:"(2024.12부터 필수)",
+        key_s3:"앱 키에서", key_s3b:"복사 (REST 키 아님)", key_s4:"플랫폼 → Web → 사이트 도메인에 등록:", key_s5:"JavaScript 키를 아래에 붙여넣기",
+        key_save:"저장하고 시작", key_doc:"카카오맵 웹 가이드 문서 →",
+        t_searching:"검색 중…", t_noaddr:"검색 결과가 없어요", t_geoerr:"검색 실패 (활성화·도메인 확인)", t_calc:"계산 중…",
+        t_done:"분 안에 닿는 범위", t_setorigin:"먼저 출발지를 지정하세요",
+        t_keyok:"키 저장 완료! 지도를 불러옵니다", t_keyfail:"지도 로드 실패 — 인터넷/키를 확인하세요",
+        t_blank:"지도가 회색이면 ① 카카오맵 활성화 ② 사이트 도메인 등록을 확인하세요",
+        reach_in:"약 ", reach_unit:"분" },
+      en:{ title:"Commute Range", tag:"How far you can reach by subway", addr_ph:"Search address / place (e.g. Gangnam)",
+        search:"Search", no_origin:"Tap the map or search an address to set start", reachable:"reach", moa:"Back to Moa", post_t:"Search by road address",
+        lg_dark:"■ darker = closer", lg_station:"station",
+        hint:'Set a start point to draw the <b>subway+walk</b> reach. Tap a station for travel time.',
+        settings:"Settings", walk:"Walk speed", walk_d:"Home/work ↔ station on foot",
+        bus:"Include bus (approx)", bus_d:"Bus for first/last mile to stations", busspeed:"Bus avg speed", busspeed_d:"Bus cruising speed", buswait:"Bus wait", buswait_d:"Avg wait at the stop",
+        transfer:"Transfer penalty", transfer_d:"Added per transfer", maxwalk:"Max walk", maxwalk_d:"Walk limit from a station",
+        showdots:"Show stations", showdots_d:"Dot reachable stations", bandedit:"Bands (min)", bandedit_d:"Set 3 ranges",
+        changekey:"Change Kakao key", changekey_d:"Re-enter JavaScript key", change:"Change",
+        disclaimer:'※ An <b>estimate</b> — train frequency/waiting not included. Based on inter-station times; use as a rough guide.',
+        key_title:"Kakao Map Key Setup", key_intro:"This app uses Kakao Maps. Just paste a free <b>JavaScript key</b>. (stored on device only)",
+        key_s1:"Sign in → My Applications → Add an application", key_s2:"Open the app →", key_s2b:"(required since 2024.12)",
+        key_s3:"From App Keys copy the", key_s3b:"(not the REST key)", key_s4:"Register under Platform → Web → Site domain:", key_s5:"Paste the JavaScript key below",
+        key_save:"Save & Start", key_doc:"Kakao Maps web guide →",
+        t_searching:"Searching…", t_noaddr:"No results", t_geoerr:"Search failed (check activation/domain)", t_calc:"Computing…",
+        t_done:"min reach drawn", t_setorigin:"Set a start point first",
+        t_keyok:"Key saved! Loading map…", t_keyfail:"Map load failed — check internet/key",
+        t_blank:"If the map is gray: check ① Kakao Map activation ② site domain registration",
+        reach_in:"~", reach_unit:"min" }
+    };
+    var lang = LS.getItem(LANG_K) || "ko";
+    function T(k){ return (I18N[lang] && I18N[lang][k]) || I18N.ko[k] || k; }
+    function applyI18n(){
+      document.querySelectorAll("[data-i18n]").forEach(function(el){ el.innerHTML = T(el.getAttribute("data-i18n")); });
+      document.querySelectorAll("[data-i18n-ph]").forEach(function(el){ el.placeholder = T(el.getAttribute("data-i18n-ph")); });
+      document.querySelectorAll("[data-i18n-title]").forEach(function(el){ el.title = T(el.getAttribute("data-i18n-title")); });
+      document.querySelectorAll("[data-i18n-aria]").forEach(function(el){ el.setAttribute("aria-label", T(el.getAttribute("data-i18n-aria"))); });
+      document.getElementById("langBtn").textContent = lang==="ko" ? "EN" : "한";
+      document.documentElement.lang = lang;
+    }
+
+    /* ───── 공통 UI ───── */
+    var toastT;
+    function toast(msg, ms){
+      var t=document.getElementById("toast"); t.innerHTML=msg; t.classList.add("show");
+      clearTimeout(toastT); toastT=setTimeout(function(){t.classList.remove("show");}, ms||2600);
+    }
+    function $(id){return document.getElementById(id);}
+
+    /* ───── 설정 상태 ───── */
+    var S = { walk:4, transfer:4, maxwalk:15, dots:true, bus:false, busSpeed:12, busWait:5, bands:[30,60,90], on:[true,true,true] };
+    try{ var saved=JSON.parse(LS.getItem(SET_K)); if(saved){ S=Object.assign(S,saved);} }catch(e){}
+    function saveSet(){ LS.setItem(SET_K, JSON.stringify(S)); }
+
+    /* ───── 지하철 그래프 ───── */
+    var COORD = new Map();
+    (window.SUBWAY.stations||[]).forEach(function(s){ COORD.set(s[0], [s[1], s[2]]); });
+
+    function buildAdj(transferPenalty){
+      var adj=new Map(), stationLines=new Map();
+      function add(a,b,w){ if(!adj.has(a))adj.set(a,[]); adj.get(a).push([b,w]); }
+      function noteLine(n,l){ if(!stationLines.has(n))stationLines.set(n,new Set()); stationLines.get(n).add(l); }
+      (window.SUBWAY.edges||[]).forEach(function(e){
+        var f=e[0],t=e[1],w=e[2],l=e[3];
+        var na=f+"␟"+l, nb=t+"␟"+l;
+        add(na,nb,w); add(nb,na,w); noteLine(f,l); noteLine(t,l);
+      });
+      stationLines.forEach(function(lines,name){
+        var arr=Array.from(lines);
+        for(var i=0;i<arr.length;i++) for(var j=i+1;j<arr.length;j++){
+          var a=name+"␟"+arr[i], b=name+"␟"+arr[j];
+          add(a,b,transferPenalty); add(b,a,transferPenalty);
+        }
+      });
+      return {adj:adj, stationLines:stationLines};
+    }
+
+    function haversine(la1,lo1,la2,lo2){
+      var R=6371000, r=Math.PI/180;
+      var dla=(la2-la1)*r, dlo=(lo2-lo1)*r;
+      var a=Math.sin(dla/2)*Math.sin(dla/2)+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dlo/2)*Math.sin(dlo/2);
+      return 2*R*Math.asin(Math.sqrt(a));
+    }
+
+    function mpm(kmh){ return kmh*1000/60; } // m/분
+    // 집·직장 ↔ 역 한 다리 소요(분): 도보 vs (대기+버스) 중 빠른 쪽
+    function accessMin(d){ var w=d/mpm(S.walk); if(!S.bus)return w; return Math.min(w, S.busWait + d/mpm(S.busSpeed)); }
+    // 남은 시간 tRem(분)으로 갈 수 있는 마지막 다리 거리(m): 도보 vs (대기 후 버스) 중 먼 쪽
+    function reachDist(tRem){ if(tRem<=0)return 0; var wr=Math.min(tRem,S.maxwalk)*mpm(S.walk); if(!S.bus)return wr;
+      var bt=Math.min(tRem-S.busWait, Math.max(S.maxwalk,25)); var br=bt>0?bt*mpm(S.busSpeed):0; return Math.max(wr,br); }
+
+    function MinHeap(){ this.a=[]; }
+    MinHeap.prototype.size=function(){return this.a.length;};
+    MinHeap.prototype.push=function(x){ var a=this.a; a.push(x); var i=a.length-1;
+      while(i>0){ var p=(i-1)>>1; if(a[p][0]<=a[i][0])break; var t=a[p];a[p]=a[i];a[i]=t; i=p; } };
+    MinHeap.prototype.pop=function(){ var a=this.a, top=a[0], last=a.pop();
+      if(a.length){ a[0]=last; var i=0,n=a.length;
+        while(true){ var l=2*i+1,r=2*i+2,s=i;
+          if(l<n&&a[l][0]<a[s][0])s=l; if(r<n&&a[r][0]<a[s][0])s=r; if(s===i)break;
+          var t=a[s];a[s]=a[i];a[i]=t; i=s; } }
+      return top; };
+
+    // 출발지 → 모든 역까지의 도달시간(분)
+    function computeArrival(oLat,oLng){
+      var g=buildAdj(S.transfer), adj=g.adj, stationLines=g.stationLines;
+      var cap=S.bus?Math.max(S.maxwalk,25):S.maxwalk; // 접근 최대 시간(분)
+      var dist=new Map(), heap=new MinHeap(), connected=0;
+      var nearest=null, nd=Infinity;
+      stationLines.forEach(function(lines,name){
+        var c=COORD.get(name); if(!c)return;
+        var d=haversine(oLat,oLng,c[0],c[1]);
+        if(d<nd){nd=d;nearest=name;}
+        var am=accessMin(d);
+        if(am<=cap){
+          lines.forEach(function(line){
+            var node=name+"␟"+line;
+            if(!dist.has(node)||am<dist.get(node)){ dist.set(node,am); heap.push([am,node]); connected++; }
+          });
+        }
+      });
+      if(connected===0 && nearest){ // 너무 멀면 가장 가까운 역에라도 연결
+        var lines=stationLines.get(nearest), am=accessMin(nd);
+        lines.forEach(function(line){ var node=nearest+"␟"+line; dist.set(node,am); heap.push([am,node]); });
+      }
+      while(heap.size()){
+        var top=heap.pop(), d=top[0], node=top[1];
+        if(d>dist.get(node))continue;
+        var nb=adj.get(node); if(!nb)continue;
+        for(var i=0;i<nb.length;i++){ var to=nb[i][0], ndd=d+nb[i][1];
+          if(!dist.has(to)||ndd<dist.get(to)){ dist.set(to,ndd); heap.push([ndd,to]); } }
+      }
+      var arrival=new Map();
+      dist.forEach(function(d,node){
+        var name=node.slice(0,node.lastIndexOf("␟"));
+        if(!arrival.has(name)||d<arrival.get(name))arrival.set(name,d);
+      });
+      return arrival;
+    }
+
+    /* ───── 카카오 지도 ───── */
+    var map=null, marker=null, geocoder=null, places=null, dotInfo=null;
+    var overlays=[], dotOverlays=[];
+    var lastArrival=null, lastOrigin=null;
+
+    function clearArea(){ overlays.forEach(function(o){o.setMap(null);}); overlays=[]; }
+    function clearDots(){ dotOverlays.forEach(function(o){o.setMap(null);}); dotOverlays=[]; if(dotInfo){dotInfo.close();} }
+
+    var BANDCOLORS=["--green","--amber","--red"];
+    function cssVar(v){ return getComputedStyle(document.body).getPropertyValue(v).trim(); }
+
+    function render(){
+      if(!lastArrival||!lastOrigin||!map) return;
+      clearArea(); clearDots();
+      var heat=cssVar("--accent")||"#2563eb";
+
+      // 면(area): 큰 시간대부터 그려서 가까운 곳이 더 진하게 누적
+      var idxs=[0,1,2].filter(function(i){return S.on[i];}).sort(function(a,b){return S.bands[b]-S.bands[a];});
+      idxs.forEach(function(bi){
+        var Tmin=S.bands[bi];
+        var kept=[]; var pts=[];
+        var orad=reachDist(Tmin); if(orad>40) pts.push([lastOrigin[0],lastOrigin[1], orad]);
+        lastArrival.forEach(function(a,name){
+          if(a<=Tmin){ var r=reachDist(Tmin-a); if(r>40){ var c=COORD.get(name); if(c)pts.push([c[0],c[1],r]); } }
+        });
+        // 큰 원부터, 이미 덮인 작은 원은 생략
+        pts.sort(function(a,b){return b[2]-a[2];});
+        pts.forEach(function(p){
+          for(var k=0;k<kept.length;k++){
+            if(haversine(p[0],p[1],kept[k][0],kept[k][1]) < kept[k][2]*0.82 && p[2] < kept[k][2]) return;
+          }
+          kept.push(p);
+          var circ=new kakao.maps.Circle({
+            center:new kakao.maps.LatLng(p[0],p[1]), radius:p[2],
+            fillColor:heat, fillOpacity:0.16, strokeWeight:0, strokeOpacity:0, zIndex:10+bi
+          });
+          circ.setMap(map); overlays.push(circ);
+        });
+      });
+
+      // 점(dots): 도달역 표시
+      if(S.dots){
+        var maxT=Math.max.apply(null,S.bands);
+        lastArrival.forEach(function(a,name){
+          if(a>maxT) return;
+          var c=COORD.get(name); if(!c) return;
+          var bi = a<=S.bands[0]?0 : a<=S.bands[1]?1 : a<=S.bands[2]?2 : -1;
+          if(bi<0||!S.on[bi]) return;
+          var col=cssVar(BANDCOLORS[bi]);
+          var pos=new kakao.maps.LatLng(c[0],c[1]);
+          var dot=new kakao.maps.Circle({
+            center:pos, radius:130,
+            fillColor:col, fillOpacity:0.95, strokeColor:"#ffffff", strokeWeight:1.5, strokeOpacity:1, zIndex:60
+          });
+          dot.setMap(map);
+          kakao.maps.event.addListener(dot,"click",function(){
+            if(dotInfo) dotInfo.close();
+            dotInfo=new kakao.maps.InfoWindow({
+              position:pos,
+              content:'<div style="padding:7px 11px;font-size:13px;font-weight:700;color:#16202e;white-space:nowrap">'
+                +name+' · '+T("reach_in")+Math.round(a)+T("reach_unit")+'</div>'
+            });
+            dotInfo.open(map);
+          });
+          dotOverlays.push(dot);
+        });
+      }
+    }
+
+    function fitToReach(){
+      if(!lastArrival||!lastOrigin||!map||!window.kakao) return;
+      var b=new kakao.maps.LatLngBounds();
+      b.extend(new kakao.maps.LatLng(lastOrigin[0],lastOrigin[1]));
+      var maxT=0; for(var i=0;i<3;i++){ if(S.on[i]&&S.bands[i]>maxT)maxT=S.bands[i]; }
+      if(!maxT)maxT=Math.max.apply(null,S.bands);
+      var cnt=0;
+      lastArrival.forEach(function(a,name){ if(a<=maxT){ var c=COORD.get(name); if(c){ b.extend(new kakao.maps.LatLng(c[0],c[1])); cnt++; } } });
+      if(cnt>0) map.setBounds(b);
+    }
+
+    function recompute(fit){
+      if(!lastOrigin||!map) return;
+      toast('<span class="spin"></span> '+T("t_calc"));
+      setTimeout(function(){
+        lastArrival=computeArrival(lastOrigin[0],lastOrigin[1]);
+        render();
+        if(fit) fitToReach();
+        var on=S.bands.filter(function(_,i){return S.on[i];});
+        toast(on.length ? ("✓ "+Math.max.apply(null,on)+T("t_done")) : "✓");
+      },20);
+    }
+
+    function setOrigin(lat,lng,label,fit){
+      lastOrigin=[lat,lng];
+      LS.setItem(ORI_K, JSON.stringify({lat:lat,lng:lng,label:label||""}));
+      var pos=new kakao.maps.LatLng(lat,lng);
+      if(!marker){
+        marker=new kakao.maps.Marker({position:pos, map:map, draggable:true});
+        kakao.maps.event.addListener(marker,"dragend",function(){
+          var p=marker.getPosition(); setOrigin(p.getLat(),p.getLng(),null,false); reverseGeo(p.getLat(),p.getLng());
+        });
+      } else marker.setPosition(pos);
+      $("originText").innerHTML = label ? "<b>"+label+"</b>" : "<b>"+lat.toFixed(5)+", "+lng.toFixed(5)+"</b>";
+      recompute(fit);
+    }
+
+    function reverseGeo(lat,lng){
+      if(!geocoder) return;
+      // ⚠️ coord2Address(경도, 위도) — 순서 주의
+      geocoder.coord2Address(lng, lat, function(result, status){
+        if(status!==kakao.maps.services.Status.OK || !result.length) return;
+        var r=result[0];
+        var t = (r.road_address && r.road_address.address_name) ? r.road_address.address_name
+              : (r.address ? r.address.address_name : null);
+        if(t) $("originText").innerHTML="<b>"+t+"</b>";
+      });
+    }
+
+    function doSearch(){
+      var q=$("addr").value.trim(); if(!q) return;
+      if(!geocoder||!places){ toast(T("t_geoerr")); return; }
+      toast('<span class="spin"></span> '+T("t_searching"));
+      // 1) 주소 검색 → 2) 실패 시 키워드(장소) 검색
+      geocoder.addressSearch(q, function(result, status){
+        if(status===kakao.maps.services.Status.OK && result.length){
+          var r=result[0]; // .x=경도, .y=위도
+          setOrigin(parseFloat(r.y), parseFloat(r.x), r.road_address_name||r.address_name||q, true);
+        } else {
+          places.keywordSearch(q, function(data, st2){
+            if(st2===kakao.maps.services.Status.OK && data.length){
+              var p=data[0];
+              setOrigin(parseFloat(p.y), parseFloat(p.x), p.place_name||q, true);
+            } else if(st2===kakao.maps.services.Status.ZERO_RESULT){ toast(T("t_noaddr")); }
+            else { toast(T("t_geoerr")); }
+          });
+        }
+      });
+    }
+
+    /* ───── 지도 초기화 ───── */
+    function initMap(){
+      map=new kakao.maps.Map($("map"), {
+        center:new kakao.maps.LatLng(37.5663,126.9779), level:9
+      });
+      map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+      geocoder=new kakao.maps.services.Geocoder();
+      places=new kakao.maps.services.Places();
+
+      kakao.maps.event.addListener(map,"click",function(mouseEvent){
+        var ll=mouseEvent.latLng;
+        setOrigin(ll.getLat(), ll.getLng(), null, false); reverseGeo(ll.getLat(), ll.getLng());
+      });
+
+      // 회색 지도(도메인 미등록) 안내
+      setTimeout(function(){ if(!lastOrigin) toast(T("t_blank"), 4200); }, 1500);
+
+      // 마지막 출발지 복원 — 첫 타일 로드 후 1회만 (그 전엔 setBounds가 무시됨)
+      var restored=false;
+      kakao.maps.event.addListener(map,"tilesloaded",function onTiles(){
+        if(restored)return; restored=true;
+        kakao.maps.event.removeListener(map,"tilesloaded",onTiles);
+        try{ var o=JSON.parse(LS.getItem(ORI_K)); if(o){ setOrigin(o.lat,o.lng,o.label,true); } }catch(e){}
+      });
+    }
+
+    function loadKakao(key){
+      return new Promise(function(resolve,reject){
+        if(window.kakao && window.kakao.maps && window.kakao.maps.services){ resolve(); return; }
+        var s=document.createElement("script");
+        s.src="//dapi.kakao.com/v2/maps/sdk.js?appkey="+encodeURIComponent(key)+"&autoload=false&libraries=services";
+        s.onload=function(){
+          if(window.kakao && window.kakao.maps){ kakao.maps.load(function(){ resolve(); }); }
+          else reject();
+        };
+        s.onerror=function(){ reject(); };
+        document.head.appendChild(s);
+      });
+    }
+
+    function startMap(){
+      var key=LS.getItem(KEY_K);
+      if(!key){ openKeyModal(); return; }
+      loadKakao(key).then(initMap).catch(function(){ toast(T("t_keyfail")); openKeyModal(); });
+    }
+
+    /* ───── 키 모달 ───── */
+    function openKeyModal(){
+      var k=LS.getItem(KEY_K); if(k)$("keyInput").value=k;
+      try{ $("curOrigin").textContent = location.origin && location.origin!=="null" ? location.origin : "https://nsaosulfate.github.io"; }catch(e){}
+      $("keyModal").classList.add("show");
+    }
+    function closeKeyModal(){ $("keyModal").classList.remove("show"); }
+    $("keySave").addEventListener("click",function(){
+      var k=$("keyInput").value.trim(); if(!k){ $("keyInput").focus(); return; }
+      LS.setItem(KEY_K,k); closeKeyModal(); toast(T("t_keyok"));
+      loadKakao(k).then(function(){ if(!map)initMap(); }).catch(function(){ toast(T("t_keyfail")); openKeyModal(); });
+    });
+    $("keyBtn").addEventListener("click",openKeyModal);
+    $("changeKeyBtn").addEventListener("click",openKeyModal);
+    $("keyModal").addEventListener("click",function(e){ if(e.target===this && LS.getItem(KEY_K)) closeKeyModal(); });
+
+    /* ───── 컨트롤 바인딩 ───── */
+    $("searchBtn").addEventListener("click",doSearch);
+    $("addr").addEventListener("keydown",function(e){ if(e.key==="Enter")doSearch(); });
+
+    // 카카오 우편번호 팝업 → 선택 주소를 지오코딩해 출발지로
+    function openPostcode(){
+      var P=(window.daum&&daum.Postcode)||(window.kakao&&kakao.Postcode);
+      if(!P){ toast(T("t_geoerr")); return; }
+      new P({ oncomplete:function(data){
+        var addr=data.roadAddress||data.address||data.jibunAddress;
+        if(!geocoder){ toast(T("t_geoerr")); return; }
+        $("addr").value=addr;
+        geocoder.addressSearch(addr,function(result,status){
+          if(status===kakao.maps.services.Status.OK && result.length){ var r=result[0]; setOrigin(parseFloat(r.y),parseFloat(r.x),addr,true); }
+          else { toast(T("t_noaddr")); }
+        });
+      }}).open();
+    }
+    $("postBtn").addEventListener("click",openPostcode);
+
+    var sheet=$("sheet");
+    $("grip").addEventListener("click",function(){ sheet.classList.toggle("collapsed"); });
+
+    document.querySelectorAll(".band").forEach(function(el){
+      var i=parseInt(el.getAttribute("data-band"),10);
+      if(!S.on[i]) el.classList.add("off");
+      el.querySelector(".bt").textContent=S.bands[i];
+      el.addEventListener("click",function(){
+        S.on[i]=!S.on[i]; el.classList.toggle("off",!S.on[i]); saveSet(); render();
+      });
+    });
+
+    function bindRange(id,key,fmt,recalc){
+      var el=$(id), v=$(id+"V");
+      el.value=S[key]; v.textContent=fmt(S[key]);
+      el.addEventListener("input",function(){ S[key]=parseFloat(el.value); v.textContent=fmt(S[key]); });
+      el.addEventListener("change",function(){ saveSet(); if(recalc)recompute(false); else render(); });
+    }
+    bindRange("walk","walk",function(x){return x.toFixed(1);},true);
+    bindRange("transfer","transfer",function(x){return x;},true);
+    bindRange("maxwalk","maxwalk",function(x){return x;},true);
+
+    $("showdots").checked=S.dots;
+    $("showdots").addEventListener("change",function(){ S.dots=this.checked; saveSet(); render(); });
+
+    function syncBusRow(){ var d=S.bus?"":"none"; $("busSpeedRow").style.display=d; $("busWaitRow").style.display=d; }
+    $("bus").checked=S.bus; syncBusRow();
+    $("bus").addEventListener("change",function(){ S.bus=this.checked; syncBusRow(); saveSet(); recompute(false); });
+    bindRange("busSpeed","busSpeed",function(x){return x;},true);
+    bindRange("busWait","busWait",function(x){return x;},true);
+
+    ["m0","m1","m2"].forEach(function(id,i){
+      $(id).value=S.bands[i];
+      $(id).addEventListener("change",function(){
+        var n=parseInt(this.value,10); if(isNaN(n)||n<1)n=S.bands[i]; this.value=n;
+        S.bands[i]=n; document.querySelector('.band[data-band="'+i+'"] .bt').textContent=n;
+        saveSet(); recompute(false);
+      });
+    });
+
+    function applyDark(d){ document.documentElement.dataset.theme=d?"dark":"light"; $("darkBtn").textContent=d?"☀️":"🌙";
+      var m=document.querySelector('meta[name=theme-color]'); if(m)m.content=d?"#111219":"#f4f4f1"; }
+    var dark=(LS.getItem(DARK_K)||(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"))==="dark"; applyDark(dark);
+    $("darkBtn").addEventListener("click",function(){ dark=!dark; LS.setItem(DARK_K,dark?"dark":"light"); applyDark(dark); if(map)render(); });
+
+    $("langBtn").addEventListener("click",function(){ lang=lang==="ko"?"en":"ko"; LS.setItem(LANG_K,lang); applyI18n(); });
+
+    /* ───── 시작 ───── */
+    applyI18n();
+    if(!window.SUBWAY){ toast("데이터 로드 실패 (subway-data.js)"); }
+    startMap();
+  })();
+  </script>
+</body>
+</html>
