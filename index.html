@@ -176,7 +176,7 @@
       </div>
     </div>
     <div class="sp"></div>
-    <a class="iconbtn moa-btn" href="https://nsaosulfate.github.io/moa/" data-i18n-title="moa" data-i18n-aria="moa" title="모아로 돌아가기" aria-label="모아로 돌아가기">◈</a>
+    <a class="iconbtn moa-btn" href="https://clayborneyeounjunlee.github.io/moa/" data-i18n-title="moa" data-i18n-aria="moa" title="모아로 돌아가기" aria-label="모아로 돌아가기">◈</a>
     <button class="iconbtn" id="langBtn" title="언어">EN</button>
     <button class="iconbtn" id="darkBtn" title="다크모드">🌙</button>
     <button class="iconbtn" id="keyBtn" title="설정">⚙️</button>
@@ -281,7 +281,7 @@
         <li><a class="linkbtn" href="https://developers.kakao.com" target="_blank">developers.kakao.com</a> <span data-i18n="key_s1">로그인 → 내 애플리케이션 → 애플리케이션 추가하기</span></li>
         <li><span data-i18n="key_s2">앱 선택 →</span> <b>제품 설정 → 카카오맵 → 활성화 ON</b> <span data-i18n="key_s2b">(2024.12부터 필수)</span></li>
         <li><span data-i18n="key_s3">앱 키에서</span> <b>JavaScript 키</b> <span data-i18n="key_s3b">복사 (REST 키 아님)</span></li>
-        <li><span data-i18n="key_s4">플랫폼 → Web → 사이트 도메인에 등록:</span><br><code id="curOrigin">https://nsaosulfate.github.io</code></li>
+        <li><span data-i18n="key_s4">플랫폼 → Web → 사이트 도메인에 등록:</span><br><code id="curOrigin">https://clayborneyeounjunlee.github.io</code></li>
         <li><span data-i18n="key_s5">JavaScript 키를 아래에 붙여넣기</span></li>
       </ol>
       <input type="text" id="keyInput" placeholder="JavaScript 키 (예: 0a1b2c3d4e5f...)" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -638,7 +638,7 @@
     /* ───── 키 모달 ───── */
     function openKeyModal(){
       var k=LS.getItem(KEY_K); if(k)$("keyInput").value=k;
-      try{ $("curOrigin").textContent = location.origin && location.origin!=="null" ? location.origin : "https://nsaosulfate.github.io"; }catch(e){}
+      try{ $("curOrigin").textContent = location.origin && location.origin!=="null" ? location.origin : "https://clayborneyeounjunlee.github.io"; }catch(e){}
       $("keyModal").classList.add("show");
     }
     function closeKeyModal(){ $("keyModal").classList.remove("show"); }
