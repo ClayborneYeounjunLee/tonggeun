@@ -26,13 +26,14 @@
   @keyframes sp{to{transform:rotate(360deg)}}
   @keyframes pulse{0%{transform:scale(.55);opacity:.85}100%{transform:scale(2.4);opacity:0}}
 
-  /* 카카오 지도 타일은 다크 모드에서도 라이트 유지(카카오 다크 타일 미제공 — 의도적) */
-  #map{position:absolute;inset:0;background:#E4EAE7}
+  /* 지도 타일 테마 연동: 다크 테마 = 네이버 다크 베이스맵(naver:dark · 직접 등록), 라이트 = 일반 */
+  /* 네이버 SDK 가 컨테이너에 inline position:relative 를 강제 → inset 만으론 높이 0 붕괴. 명시적 크기 필수 */
+  #map{position:absolute;inset:0;width:100%;height:100%;background:#111213}
   html[data-theme="light"] #map{background:#DDE4E2}
 
-  /* 역 팝업(글라스 CustomOverlay) */
+  /* 역 팝업(글라스 · 마커 HTML 아이콘) */
   .stpop{background:var(--panel-solid);border:1px solid var(--line);border-radius:11px;padding:7px 12px;font-size:12.5px;font-weight:700;color:var(--ink);box-shadow:0 10px 28px rgba(0,0,0,.45);white-space:nowrap;font-family:"IBM Plex Sans KR",sans-serif}
-  /* 도달역 점(CustomOverlay HTML — 등시권 캔버스 '위' 오버레이 레이어) */
+  /* 도달역 점(마커 HTML 아이콘 — 등시권 캔버스 '위' 마커 레이어) */
   .stdot{width:11px;height:11px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);cursor:pointer}
 
   /* 유리 패널 공통 */
@@ -106,7 +107,7 @@
   .attr a{color:var(--sub);text-decoration:underline;text-underline-offset:2px}
   .attr a:hover{color:var(--ink)}
 
-  /* ── 지도 안내 카드 (카카오 SDK 미가동 시) ── */
+  /* ── 지도 안내 카드 (네이버 지도 SDK 미가동 시) ── */
   .mapcard{position:absolute;inset:0;z-index:600;display:none;align-items:center;justify-content:center;padding:24px;pointer-events:none}
   .mapcard.show{display:flex}
   .mapcard .inner{pointer-events:auto;max-width:360px;text-align:center;padding:22px 22px 20px;border-radius:18px}
@@ -204,14 +205,14 @@
   </div>
 
   <div class="attr" data-r="attr">
-    전철 데이터 <a href="https://github.com/ledyx/KoreaMetroGraph" target="_blank" rel="noopener">KoreaMetroGraph</a> · Map &copy; Kakao
+    전철 데이터 <a href="https://github.com/ledyx/KoreaMetroGraph" target="_blank" rel="noopener">KoreaMetroGraph</a> · Map &copy; NAVER
   </div>
 
   <div class="mapcard" id="mapCard">
     <div class="inner glass">
       <div class="mi"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3z"></path><path d="M9 7v13M15 4v13"></path></svg></div>
-      <div class="mt" data-i18n="map_card_title">카카오맵 서비스 활성화 대기 중</div>
-      <div class="mb" data-i18n="map_card_body"><a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>에서 카카오맵 사용 신청 + 사이트 도메인 등록 후 새로고침하면 지도가 나타납니다.</div>
+      <div class="mt" data-i18n="map_card_title">네이버 지도 서비스 활성화 대기 중</div>
+      <div class="mb" data-i18n="map_card_body"><a href="https://www.ncloud.com" target="_blank" rel="noopener">ncloud.com</a> 콘솔에서 Maps 이용 신청 + Web 서비스 URL 등록을 확인한 뒤 새로고침하면 지도가 나타납니다.</div>
     </div>
   </div>
 
@@ -224,7 +225,7 @@
     var LS = window.localStorage;
     var DARK_K="hub-theme", LANG_K="tg_lang", SET_K="tg_settings", ORI_K="tg_origin";
     var BAND_PALETTE=["#3AE0CE","#E8B95A","#E9708F"];   // 30 / 45 / 60분
-    var KAKAO_KEY="a67dd0ac252aa34bec5b940106490598";   // globird .env 의 KAKAO_JS_KEY (JS 키 = 도메인 제한 전제의 공개키)
+    var NAVER_KEY_ID="wokwylzczr";   // NCP Maps Client ID (ncpKeyId). 공개 JS 키 — 도메인 제한이 방어선. Client Secret 은 코드에 넣지 않음
     var DEFAULT_ORI=[37.5547,126.9707], DEFAULT_LABEL="서울역";
 
     /* ───── i18n (ko/en 완전 대칭) ───── */
@@ -236,10 +237,10 @@
         hint:'출발지를 정하면 <b style="color:var(--brand);font-weight:600">전철+도보</b> 기준 도달 범위를 그려요. 역 점을 누르면 소요시간이 나옵니다. <span style="opacity:.75">수도권 전철 그래프+버스 근사 기반 추정치.</span>',
         t_calc:"계산 중…", t_done:"분 안에 닿는 범위", t_searching:"검색 중…",
         t_noaddr:"검색 결과가 없어요 — 지명·랜드마크로 시도", t_geoerr:"검색 실패 — 잠시 후 다시",
-        reach_in:"약 ", reach_unit:"분",
-        kakao_wait:"카카오맵 미가동 — 콘솔에서 카카오맵 사용 신청 후 새로고침",
-        map_card_title:"카카오맵 서비스 활성화 대기 중",
-        map_card_body:'<a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>에서 카카오맵 사용 신청 + 사이트 도메인 등록 후 새로고침하면 지도가 나타납니다.' },
+        reach_in:"약 ", reach_unit:"분", st_sub:"지하철역",
+        map_wait:"네이버 지도 미가동 — 콘솔에서 Maps 이용 신청 후 새로고침",
+        map_card_title:"네이버 지도 서비스 활성화 대기 중",
+        map_card_body:'<a href="https://www.ncloud.com" target="_blank" rel="noopener">ncloud.com</a> 콘솔에서 Maps 이용 신청 + Web 서비스 URL 등록을 확인한 뒤 새로고침하면 지도가 나타납니다.' },
       en:{ title:"Seoul Commute", tag:"Seoul · transit isochrone", addr_ph:"Search place / address (e.g. Gangnam, Pangyo)",
         search:"Search", sec_origin:"Origin", no_origin:"Tap the map or search an address to set your start point", ac_none:"No results", walk_label:"Walk distance",
         sec_reach:"Reach time", minU:"m", reachable:"reach",
@@ -247,10 +248,10 @@
         hint:'Set a start point to draw the <b style="color:var(--brand);font-weight:600">rail + walk</b> reach. Tap a station dot for its time. <span style="opacity:.75">Estimate from the metro graph + bus approximation.</span>',
         t_calc:"Computing…", t_done:" min reach drawn", t_searching:"Searching…",
         t_noaddr:"No results — try a place or landmark", t_geoerr:"Search failed — try again",
-        reach_in:"~", reach_unit:" min",
-        kakao_wait:"Kakao Maps not enabled yet — enable it in the console, then refresh",
-        map_card_title:"Kakao Maps not enabled yet",
-        map_card_body:'Enable Kakao Maps + register this site domain at <a href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com</a>, then refresh to load the map.' }
+        reach_in:"~", reach_unit:" min", st_sub:"Subway station",
+        map_wait:"NAVER Maps not enabled yet — enable it in the console, then refresh",
+        map_card_title:"NAVER Maps not enabled yet",
+        map_card_body:'Enable Maps + register this site domain (Web service URL) at <a href="https://www.ncloud.com" target="_blank" rel="noopener">ncloud.com</a>, then refresh to load the map.' }
     };
     var lang = LS.getItem(LANG_K) || "ko";
     function T(k){ return (I18N[lang] && I18N[lang][k]) || I18N.ko[k] || k; }
@@ -371,15 +372,18 @@
       return arrival;
     }
 
-    /* ───── 카카오 지도 상태 ───── */
-    var map=null, geocoder=null, places=null;
+    /* ───── 네이버 지도 상태 ───── */
+    var map=null, darkMapOK=false;
     var marker=null, pulseOv=null, dotOverlays=[], dotInfo=null, isoCanvas=null;
+    function svcReady(){ return !!(window.naver && naver.maps && naver.maps.Service); }   // geocoder 서브모듈 비동기 로드 가드
+    // HTML 아이콘 마커의 앵커: 콘텐츠 크기를 몰라도 되도록 transform 으로 중심 정렬 (카카오 xAnchor/yAnchor 대체)
+    function wrapCC(html){ return '<div style="position:absolute;transform:translate(-50%,-50%)">'+html+'</div>'; }
     var lastArrival=null, lastOrigin=null, curOriginLabel=null;
     var isoData=[], isoMode="approx";
 
     function clearDots(){ dotOverlays.forEach(function(o){o.setMap(null);}); dotOverlays=[]; if(dotInfo){ dotInfo.setMap(null); dotInfo=null; } }
 
-    /* ───── 등시권 렌더러 (캔버스 blur→threshold 컨투어 · 카카오 투영) ───── */
+    /* ───── 등시권 렌더러 (캔버스 blur→threshold 컨투어 · 네이버 투영) ───── */
     function approxPoints(){ var arr=[]; if(lastArrival){ lastArrival.forEach(function(a,name){ var c=COORD.get(name); if(c) arr.push([c[0],c[1],a]); }); } return arr; }
 
     function drawIsoCanvas(){
@@ -390,13 +394,13 @@
       var ctx=cv.getContext("2d"); ctx.clearRect(0,0,w,h);
       if(!lastOrigin || !isoData || !isoData.length) return;
       var proj=map.getProjection(); if(!proj) return;
-      var c1=proj.coordsFromContainerPoint(new kakao.maps.Point(0,H/2)), c2=proj.coordsFromContainerPoint(new kakao.maps.Point(100,H/2));
-      var mPerPx=haversine(c1.getLat(),c1.getLng(),c2.getLat(),c2.getLng())/100; if(!mPerPx) return;
+      var c1=proj.fromOffsetToCoord(new naver.maps.Point(0,H/2)), c2=proj.fromOffsetToCoord(new naver.maps.Point(100,H/2));
+      var mPerPx=haversine(c1.lat(),c1.lng(),c2.lat(),c2.lng())/100; if(!mPerPx) return;
       var pxPerM=sc/mPerPx;
       if(!drawIsoCanvas._off){ drawIsoCanvas._off=document.createElement("canvas"); drawIsoCanvas._tmp=document.createElement("canvas"); }
       var off=drawIsoCanvas._off, tmp=drawIsoCanvas._tmp; off.width=w; off.height=h; tmp.width=w; tmp.height=h;
-      var octx=off.getContext("2d"), tctx=tmp.getContext("2d");
-      function projPt(lat,lng){ var p=proj.containerPointFromCoords(new kakao.maps.LatLng(lat,lng)); return [p.x, p.y]; }
+      var octx=off.getContext("2d",{willReadFrequently:true}), tctx=tmp.getContext("2d");
+      function projPt(lat,lng){ var p=proj.fromCoordToOffset(new naver.maps.LatLng(lat,lng)); return [p.x, p.y]; }
       var idxs=[0,1,2].filter(function(i){return S.on[i];}).sort(function(a,b){return S.bands[b]-S.bands[a];});
       idxs.forEach(function(bi){
         var Tmin=S.bands[bi], rgb=hexToRgb(BAND_PALETTE[bi]);
@@ -439,9 +443,8 @@
 
     function showStPop(pos,name,min){
       if(dotInfo){ dotInfo.setMap(null); dotInfo=null; }
-      var html='<div class="stpop">'+esc(name)+' · '+T("reach_in")+Math.round(min)+T("reach_unit")+'</div>';
-      dotInfo=new kakao.maps.CustomOverlay({ position:pos, content:html, yAnchor:1.5, zIndex:80 });
-      dotInfo.setMap(map);
+      var html='<div style="position:absolute;transform:translate(-50%,-150%);white-space:nowrap"><div class="stpop">'+esc(name)+' · '+T("reach_in")+Math.round(min)+T("reach_unit")+'</div></div>';
+      dotInfo=new naver.maps.Marker({ position:pos, map:map, clickable:false, zIndex:80, icon:{ content:html, anchor:new naver.maps.Point(0,0) } });
     }
 
     function drawDots(){
@@ -453,14 +456,15 @@
       lastArrival.forEach(function(a,name){
         if(a>selT) return;
         var c=COORD.get(name); if(!c) return;
-        var pos=new kakao.maps.LatLng(c[0],c[1]);
-        // 도트 = CustomOverlay(HTML). kakao.maps.Circle 은 shape 레이어 → 등시권 캔버스(z=2) 아래로 깔려
-        // 틴트된다. 마커·팝업과 동일한 오버레이 레이어(캔버스 위)로 올린다. clickable:true → 지도 클릭 전파 차단.
+        var pos=new naver.maps.LatLng(c[0],c[1]);
+        // 도트 = 마커(HTML 아이콘). 네이버 마커 레이어는 overlayLayer(등시권 캔버스)보다 위 →
+        // 도트가 항상 캔버스 위에 또렷. clickable:true → 지도 클릭 전파 차단.
         var el=document.createElement("div");
         el.className="stdot"; el.style.background=bandColor(a); el.style.borderColor=edge;
         (function(nm,mn,pp){ el.addEventListener("click",function(ev){ if(ev&&ev.stopPropagation)ev.stopPropagation(); showStPop(pp,nm,mn); }); })(name,a,pos);
-        var ov=new kakao.maps.CustomOverlay({ position:pos, content:el, xAnchor:0.5, yAnchor:0.5, zIndex:60, clickable:true });
-        ov.setMap(map);
+        var wrap=document.createElement("div");
+        wrap.style.cssText="position:absolute;transform:translate(-50%,-50%)"; wrap.appendChild(el);
+        var ov=new naver.maps.Marker({ position:pos, map:map, clickable:true, zIndex:60, icon:{ content:wrap, anchor:new naver.maps.Point(0,0) } });
         dotOverlays.push(ov);
       });
     }
@@ -476,11 +480,11 @@
 
     function fitToReach(){
       if(!lastArrival||!lastOrigin||!map) return;
-      var b=new kakao.maps.LatLngBounds();
-      b.extend(new kakao.maps.LatLng(lastOrigin[0],lastOrigin[1]));
+      var o0=new naver.maps.LatLng(lastOrigin[0],lastOrigin[1]);
+      var b=new naver.maps.LatLngBounds(o0,o0);
       var maxT=maxOnBand(), cnt=0;
-      lastArrival.forEach(function(a,name){ if(a<=maxT){ var c=COORD.get(name); if(c){ b.extend(new kakao.maps.LatLng(c[0],c[1])); cnt++; } } });
-      if(cnt>0) map.setBounds(b);
+      lastArrival.forEach(function(a,name){ if(a<=maxT){ var c=COORD.get(name); if(c){ b.extend(new naver.maps.LatLng(c[0],c[1])); cnt++; } } });
+      if(cnt>0) map.fitBounds(b);
     }
 
     function recompute(fit){
@@ -499,7 +503,7 @@
     function markerImage(){
       var b=isDark()?"#2BD4C0":"#0E8E80";
       var svg="<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'><circle cx='13' cy='13' r='7.5' fill='"+b+"' stroke='rgba(4,20,18,.92)' stroke-width='2.6'/></svg>";
-      return new kakao.maps.MarkerImage("data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg), new kakao.maps.Size(26,26), { offset:new kakao.maps.Point(13,13) });
+      return { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg), size:new naver.maps.Size(26,26), scaledSize:new naver.maps.Size(26,26), anchor:new naver.maps.Point(13,13) };
     }
     function pulseContent(){
       var b=isDark()?"43,212,192":"14,142,128";
@@ -513,53 +517,54 @@
     function setOrigin(lat,lng,label,fit){
       lastOrigin=[lat,lng];
       LS.setItem(ORI_K, JSON.stringify({lat:lat,lng:lng,label:label||""}));
-      var pos=new kakao.maps.LatLng(lat,lng);
+      var pos=new naver.maps.LatLng(lat,lng);
       if(!marker){
-        marker=new kakao.maps.Marker({ position:pos, map:map, draggable:true, image:markerImage(), zIndex:70 });
-        kakao.maps.event.addListener(marker,"dragend",function(){ var p=marker.getPosition(); setOrigin(p.getLat(),p.getLng(),null,false); reverseGeo(p.getLat(),p.getLng()); });
-        pulseOv=new kakao.maps.CustomOverlay({ position:pos, content:pulseContent(), xAnchor:0.5, yAnchor:0.5, zIndex:65 });
-        pulseOv.setMap(map);
+        marker=new naver.maps.Marker({ position:pos, map:map, draggable:true, icon:markerImage(), zIndex:70 });
+        naver.maps.Event.addListener(marker,"dragend",function(){ var p=marker.getPosition(); setOrigin(p.lat(),p.lng(),null,false); reverseGeo(p.lat(),p.lng()); });
+        pulseOv=new naver.maps.Marker({ position:pos, map:map, clickable:false, zIndex:65, icon:{ content:wrapCC(pulseContent()), anchor:new naver.maps.Point(0,0) } });
       } else { marker.setPosition(pos); if(pulseOv) pulseOv.setPosition(pos); }
       curOriginLabel = label || (lat.toFixed(5)+", "+lng.toFixed(5));
       setOriginText();
       recompute(fit);
     }
 
-    /* ───── 카카오 리버스 지오코딩 (coord2Address: x=경도, y=위도 순서 주의) ───── */
+    /* ───── 네이버 리버스 지오코딩 (Service.reverseGeocode · 도로명 우선) ───── */
     function reverseGeo(lat,lng){
-      if(!geocoder) return;
-      geocoder.coord2Address(lng, lat, function(result, status){
-        if(status!==kakao.maps.services.Status.OK || !result.length) return;
-        var r=result[0];
-        var t=(r.road_address && r.road_address.address_name) ? r.road_address.address_name
-             : (r.address ? r.address.address_name : null);
+      if(!svcReady()) return;
+      naver.maps.Service.reverseGeocode({ coords:new naver.maps.LatLng(lat,lng), orders:"roadaddr,addr" }, function(status, response){
+        if(status!==naver.maps.Service.Status.OK || !response || !response.v2) return;
+        var ad=response.v2.address || {};
+        var t=(ad.roadAddress||"").trim() || (ad.jibunAddress||"").trim() || null;
         if(t){ curOriginLabel=t; setOriginText(); }
       });
     }
 
-    /* ───── 확정 검색: 키워드(장소) 1위 → 없으면 주소 검색 폴백 ───── */
-    var RECT="126.55,37.95,127.75,36.95";   // 수도권 바이어스 rect (minLng,maxLat,maxLng,minLat)
+    /* ───── 확정 검색: 역명 로컬 매칭 1위 → 없으면 네이버 주소 지오코딩 폴백 ─────
+       카카오 keywordSearch(POI) 는 네이버 JS SDK 에 없음 → 지하철 604역 로컬 매칭(즉시·무쿼터)이 1순위 */
+    function stationMatches(q, limit){
+      var out=[], ql=q.toLowerCase();
+      COORD.forEach(function(c, name){ if(name.toLowerCase().indexOf(ql)>=0) out.push({ name:name, sub:T("st_sub"), lat:c[0], lon:c[1] }); });
+      out.sort(function(a,b){ var ap=a.name.toLowerCase().indexOf(ql)===0?0:1, bp=b.name.toLowerCase().indexOf(ql)===0?0:1; return (ap-bp) || (a.name.length-b.name.length); });
+      return out.slice(0, limit);
+    }
     function doSearch(){
-      if(!places||!geocoder){ toast(T("kakao_wait"), 3600); return; }
       acHide();
       var q=$("addr").value.trim(); if(!q) return;
+      var st=stationMatches(q,1);
+      if(st.length){ setOrigin(st[0].lat, st[0].lon, st[0].name, true); return; }
+      if(!svcReady()){ toast(T("map_wait"), 3600); return; }
       toast('<span class="spin"></span> '+T("t_searching"), 8000);
-      places.keywordSearch(q, function(data,status){
-        if(status===kakao.maps.services.Status.OK && data.length){
-          var p=data[0]; setOrigin(parseFloat(p.y), parseFloat(p.x), p.place_name||q, true);
-        } else {
-          geocoder.addressSearch(q, function(res,st){
-            if(st===kakao.maps.services.Status.OK && res.length){
-              var r=res[0]; setOrigin(parseFloat(r.y), parseFloat(r.x), r.road_address_name||r.address_name||q, true);
-            } else if(st===kakao.maps.services.Status.ZERO_RESULT || status===kakao.maps.services.Status.ZERO_RESULT){ toast(T("t_noaddr")); }
-            else { toast(T("t_geoerr")); }
-          }, { size:1 });
-        }
-      }, { size:6, rect:RECT });
+      naver.maps.Service.geocode({ query:q }, function(status, response){
+        if(status!==naver.maps.Service.Status.OK){ toast(T("t_geoerr")); return; }
+        var list=(response && response.v2 && response.v2.addresses)||[];
+        if(!list.length){ toast(T("t_noaddr")); return; }
+        var r=list[0];
+        setOrigin(parseFloat(r.y), parseFloat(r.x), r.roadAddress||r.jibunAddress||q, true);
+      });
     }
     function focusSearch(){ var el=$("addr"); if(el){ el.focus(); if(el.select) el.select(); } }
 
-    /* ───── 검색 자동완성 (카카오 Places.keywordSearch · 수도권 rect 바이어스) ───── */
+    /* ───── 검색 자동완성 (역명 로컬 매칭 + 네이버 주소 지오코딩 병합) ───── */
     var acItems=[], acIdx=-1, acTimer=null, acSeq=0;
     function acHide(){ var b=$("acBox"); if(b){ b.classList.remove("show"); b.innerHTML=""; } acItems=[]; acIdx=-1; }
     function acHi(){ var b=$("acBox"); if(!b) return; b.querySelectorAll(".acitem").forEach(function(el){ el.classList.toggle("on", (+el.getAttribute("data-i"))===acIdx); }); }
@@ -584,17 +589,21 @@
       });
     }
     function acQuery(q){
-      if(!places){ acHide(); return; }
       var seq=++acSeq;
-      places.keywordSearch(q, function(data,status){
+      var st=stationMatches(q,4);
+      if(!svcReady()){ acRender(st); return; }
+      naver.maps.Service.geocode({ query:q }, function(status, response){
         if(seq!==acSeq) return;   // 최신 질의만 반영
-        if(status!==kakao.maps.services.Status.OK || !data.length){ acRender([]); return; }
-        var out=[];
-        for(var i=0;i<data.length;i++){ var p=data[i];
-          out.push({ name:p.place_name, sub:p.road_address_name||p.address_name||"", lat:parseFloat(p.y), lon:parseFloat(p.x) });
+        var out=st.slice();
+        if(status===naver.maps.Service.Status.OK){
+          var list=(response && response.v2 && response.v2.addresses)||[];
+          for(var i=0;i<list.length && out.length<6;i++){ var r=list[i];
+            var nm=r.roadAddress||r.jibunAddress; if(!nm) continue;
+            out.push({ name:nm, sub:(r.roadAddress&&r.jibunAddress&&r.jibunAddress!==r.roadAddress)?r.jibunAddress:"", lat:parseFloat(r.y), lon:parseFloat(r.x) });
+          }
         }
         acRender(out);
-      }, { size:6, rect:RECT });
+      });
     }
     function acInput(){
       var q=$("addr").value.trim();
@@ -618,30 +627,66 @@
     function fadeIso(){ if(isoCanvas) isoCanvas.style.opacity="0.18"; }
     function showIso(){ if(isoCanvas) isoCanvas.style.opacity="1"; }
 
+    /* ───── 지도 타일 테마 연동 (다크 테마 → naver:dark 베이스맵) ───── */
+    function syncMapTheme(){
+      if(!map) return;
+      if(darkMapOK) map.setMapTypeId(isDark()?"dark":"normal");
+      map.setOptions({ background:isDark()?"#111213":"#f8f9fa" });
+    }
+
     /* ───── 지도 초기화 ───── */
     function initMap(){
       hideMapCard();
-      map=new kakao.maps.Map($("map"), { center:new kakao.maps.LatLng(DEFAULT_ORI[0],DEFAULT_ORI[1]), level:8 });
-      geocoder=new kakao.maps.services.Geocoder();
-      places=new kakao.maps.services.Places();
+      map=new naver.maps.Map($("map"), { center:new naver.maps.LatLng(DEFAULT_ORI[0],DEFAULT_ORI[1]), zoom:11, background:isDark()?"#111213":"#f8f9fa" });
+      // 다크 베이스맵: SDK가 API 소비자 부트에선 다크 스타일 메타를 안 실어 getDarkMap() 등록만으론
+      // 전 타일이 "일시적인 서비스 오류"가 남(2026-07 실측). 공개 스타일 메타(JSONP·버전 회전)를 직접
+      // 받아 ImageMapType 으로 구성한다. 메타 로드 실패 시 다크 테마여도 라이트 타일 유지(우아한 폴백).
+      (function setupDarkMap(){
+        var cb="__tgDarkMeta", done=false;
+        var to=setTimeout(function(){ done=true; try{ delete window[cb]; }catch(e){} }, 5000);
+        window[cb]=function(meta){
+          if(done) return; done=true; clearTimeout(to); try{ delete window[cb]; }catch(e){}
+          if(!meta || !meta.tiles || !meta.tiles.length || !naver.maps.ImageMapType) return;
+          map.mapTypes.set("dark", new naver.maps.ImageMapType({
+            uid:"naver:dark", name:"다크",
+            minZoom:meta.minzoom||6, maxZoom:meta.maxzoom||21,
+            projection:naver.maps.EPSG3857,   // 미지정 시 EmptyProjection → fromOffsetToCoord 가 LatLng 아닌 Point 반환, 등시권 크래시
+            tileSize:new naver.maps.Size(256,256), repeatX:true,
+            tileSet:meta.tiles[0], vendor:"© NAVER Corp."
+          }));
+          darkMapOK=true; syncMapTheme();
+        };
+        var s=document.createElement("script");
+        s.src="https://nrbe.pstatic.net/styles/dbasic.json?fmt=png&callback="+cb;
+        s.onerror=function(){ if(!done){ done=true; clearTimeout(to); try{ delete window[cb]; }catch(e){} } };
+        document.head.appendChild(s);
+      })();
+      syncMapTheme();
 
-      // 등시권 캔버스: 지도 컨테이너 안 절대배치 · 포인터 이벤트 통과 (초기화 후 append)
+      // 등시권 캔버스: OverlayView 로 overlayLayer 페인(마커 레이어 아래)에 부착 · 포인터 이벤트 통과.
+      // #map 직속 자식으로 두면 네이버 내부 스태킹 컨텍스트에 따라 마커 위를 덮을 수 있어 페인에 넣는다.
       isoCanvas=document.createElement("canvas");
-      isoCanvas.style.cssText="position:absolute;left:0;top:0;pointer-events:none;z-index:2;transition:opacity .18s";
-      $("map").appendChild(isoCanvas);
+      isoCanvas.style.cssText="position:absolute;left:0;top:0;pointer-events:none;transition:opacity .18s";
+      function IsoLayer(){}
+      IsoLayer.prototype=new naver.maps.OverlayView();
+      IsoLayer.prototype.onAdd=function(){ this.getPanes().overlayLayer.appendChild(isoCanvas); };
+      IsoLayer.prototype.draw=function(){ isoCanvas.style.left="0px"; isoCanvas.style.top="0px"; };   // 페인 원점 = 뷰포트 원점(draw 시점)
+      IsoLayer.prototype.onRemove=function(){ if(isoCanvas.parentNode) isoCanvas.parentNode.removeChild(isoCanvas); };
+      new IsoLayer().setMap(map);
 
-      kakao.maps.event.addListener(map,"idle",function(){ drawIsoCanvas(); showIso(); });
-      kakao.maps.event.addListener(map,"dragstart",fadeIso);
-      kakao.maps.event.addListener(map,"zoom_start",fadeIso);
-      kakao.maps.event.addListener(map,"click",function(mouseEvent){
-        var ll=mouseEvent.latLng;
-        setOrigin(ll.getLat(), ll.getLng(), null, false); reverseGeo(ll.getLat(), ll.getLng());
+      naver.maps.Event.addListener(map,"idle",function(){ drawIsoCanvas(); showIso(); });
+      naver.maps.Event.addListener(map,"dragstart",fadeIso);
+      naver.maps.Event.addListener(map,"zoomstart",fadeIso);
+      naver.maps.Event.addListener(map,"zooming",fadeIso);
+      naver.maps.Event.addListener(map,"click",function(e){
+        var ll=e.coord;
+        setOrigin(ll.lat(), ll.lng(), null, false); reverseGeo(ll.lat(), ll.lng());
       });
 
-      // 첫 타일 로드 전 setBounds 가 무시될 수 있어(v1 패턴) 도달 계산이 준비된 뒤 최초 1회 재적합
-      kakao.maps.event.addListener(map,"tilesloaded",function onTiles(){
+      // 첫 타일 로드 전 fitBounds 가 무시될 수 있어(v1 패턴) 도달 계산이 준비된 뒤 최초 1회 재적합
+      var onTiles=naver.maps.Event.addListener(map,"tilesloaded",function(){
         if(!lastArrival||!lastOrigin) return;
-        kakao.maps.event.removeListener(map,"tilesloaded",onTiles);
+        naver.maps.Event.removeListener(onTiles);
         fitToReach();
       });
 
@@ -650,23 +695,26 @@
       else { setOrigin(DEFAULT_ORI[0],DEFAULT_ORI[1],DEFAULT_LABEL,true); }   // 첫 방문 기본 출발지 = 서울역
     }
 
-    /* ───── 카카오 SDK 로드 (autoload=false → kakao.maps.load) + 우아한 실패 처리 ───── */
-    function loadKakao(){
+    /* ───── 네이버 지도 SDK 로드 (ncpKeyId + geocoder 서브모듈) + 우아한 실패 처리 ───── */
+    function loadNaver(){
       return new Promise(function(resolve,reject){
+        // 인증 실패(키 미인증·도메인 미등록) 시 네이버가 호출하는 공식 훅.
+        // 인증은 스크립트 로드 후 비동기라 onload 성공 뒤에도 불릴 수 있어 failMap 을 직접 호출한다.
+        window.navermap_authFailure=function(){ reject(); failMap(); };
         var s=document.createElement("script");
-        s.src="https://dapi.kakao.com/v2/maps/sdk.js?appkey="+KAKAO_KEY+"&libraries=services&autoload=false";
-        s.onload=function(){ if(window.kakao && window.kakao.maps){ kakao.maps.load(function(){ resolve(); }); } else { reject(); } };
+        s.src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId="+NAVER_KEY_ID+"&submodules=geocoder";
+        s.onload=function(){ if(window.naver && naver.maps){ resolve(); } else { reject(); } };
         s.onerror=function(){ reject(); };
         document.head.appendChild(s);
       });
     }
     function showMapCard(){ var c=$("mapCard"); if(c) c.classList.add("show"); }
     function hideMapCard(){ var c=$("mapCard"); if(c) c.classList.remove("show"); }
-    function failMap(){ showMapCard(); toast(T("kakao_wait"), 5000); }   // 키 비활성/도메인 미등록 → 코드 검증으로 대체, 활성화 후 새로고침이면 동작
+    function failMap(){ showMapCard(); toast(T("map_wait"), 5000); }   // 실패 시 안내 카드 → 콘솔 정리 후 새로고침이면 동작
     function startMap(){
       var done=false;
-      var to=setTimeout(function(){ if(!done){ done=true; failMap(); } }, 6000);   // load 콜백 미발화(비활성 키) 대비
-      loadKakao().then(function(){ if(done) return; done=true; clearTimeout(to); try{ initMap(); }catch(e){ failMap(); } })
+      var to=setTimeout(function(){ if(!done){ done=true; failMap(); } }, 6000);   // load 콜백 미발화 대비
+      loadNaver().then(function(){ if(done) return; done=true; clearTimeout(to); try{ initMap(); }catch(e){ failMap(); } })
                  .catch(function(){ if(done) return; done=true; clearTimeout(to); failMap(); });
     }
 
@@ -699,7 +747,7 @@
     function applyDark(d){
       document.documentElement.dataset.theme = d?"dark":"light";
       syncDark();
-      if(map){ if(marker) marker.setImage(markerImage()); if(pulseOv) pulseOv.setContent(pulseContent()); render(); }
+      if(map){ syncMapTheme(); if(marker) marker.setIcon(markerImage()); if(pulseOv) pulseOv.setIcon({ content:wrapCC(pulseContent()), anchor:new naver.maps.Point(0,0) }); render(); }
     }
 
     /* ───── 컨트롤 바인딩 ───── */
@@ -722,8 +770,8 @@
     $("walkRange").addEventListener("change", function(){
       S.walkm=clampWalkM(parseInt(this.value,10)||WALK_DEF_M); syncWalk(); saveSet(); applyWalkDist(true);
     });
-    $("zoomIn").addEventListener("click", function(){ if(map) map.setLevel(map.getLevel()-1); });
-    $("zoomOut").addEventListener("click", function(){ if(map) map.setLevel(map.getLevel()+1); });
+    $("zoomIn").addEventListener("click", function(){ if(map) map.setZoom(map.getZoom()+1, true); });
+    $("zoomOut").addEventListener("click", function(){ if(map) map.setZoom(map.getZoom()-1, true); });
     $("grip").addEventListener("click", function(){ $("panel").classList.toggle("collapsed"); });
 
     document.querySelectorAll(".band").forEach(function(el){
